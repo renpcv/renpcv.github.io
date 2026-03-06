@@ -520,10 +520,53 @@ function makeInteriorMat() {
 
 function rng(min, max) { return min + Math.random() * (max - min); }
 
+function spawnRoom(cfgIndex, interiorVariant) {
+  const cfg = CONFIGS[cfgIndex];
+  const group = new THREE.Group();
+
+  // Spread randomly across a wide field
+  group.position.set(rng(-22, 22), rng(-12, 12), rng(-5, 2));
+
+  group.userData.vel = new THREE.Vector3(
+    rng(-0.003, 0.003),
+    rng(-0.003, 0.003),
+    0
+  );
+  group.userData.rotVel = new THREE.Vector3(
+    rng(-0.0015, 0.0015),
+    rng(-0.0025,  0.0025),
+    rng(-0.0008, 0.0008)
+  );
+
+  const intFile = cfg.interiors[interiorVariant % cfg.interiors.length];
+
+  stlLoader.load(cfg.shell, geo => {
+    geo.computeVertexNormals();
+    geo.center();
+    const mesh = new THREE.Mesh(geo, makeShellMat());
+    mesh.scale.setScalar(cfg.scale);
+    mesh.userData.role = 'shell';
+    group.add(mesh);
+  });
+
+  stlLoader.load(intFile, geo => {
+    geo.computeVertexNormals();
+    geo.center();
+    const mesh = new THREE.Mesh(geo, makeInteriorMat());
+    mesh.scale.setScalar(cfg.scale);
+    mesh.userData.role = 'interior';
+    mesh.renderOrder = 1;
+    group.add(mesh);
+  });
+
+  scene.add(group);
+  roomGroups.push(group);
+}
+
 const BASE_SCALE = 0.015;
 const BASE_SPEED = 1.0;
 const BASE_COUNT = 9;
-let currentScale = 1.0;
+let currentScale = BASE_SCALE;
 let currentSpeedMult = BASE_SPEED;
 let currentCount = BASE_COUNT;
 
