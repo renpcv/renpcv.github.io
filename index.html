@@ -663,6 +663,61 @@ document.getElementById('speed-slider').addEventListener('input', function() {
   });
 });
 
+// ── Drag interaction ──────────────────────────────────────────────────
+// Enable pointer events on canvas so we can receive mouse clicks
+canvas.style.pointerEvents = 'all';
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+let dragGroup = null;       // the room group being dragged
+let dragPlane = new THREE.Plane(); // world-space plane at the room's Z depth
+let dragOffset = new THREE.Vector3(); // offset from group origin to hit point
+const _planeHit = new THREE.Vector3();
+
+function getMouseNDC(e) {
+  mouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+}
+
+function getAllMeshes() {
+  const meshes = [];
+  roomGroups.forEach(g => g.children.forEach(m => meshes.push(m)));
+  return meshes;
+}
+
+canvas.addEventListener('mousedown', e => {
+  getMouseNDC(e);
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(getAllMeshes());
+  if (hits.length > 0) {
+    // Find the parent group
+    dragGroup = hits[0].object.parent;
+    // Build a plane facing the camera at the room's Z position
+    dragPlane.setFromNormalAndCoplanarPoint(
+      camera.getWorldDirection(new THREE.Vector3()).negate(),
+      dragGroup.position
+    );
+    // Store offset so the room doesn't jump to cursor centre
+    raycaster.ray.intersectPlane(dragPlane, _planeHit);
+    dragOffset.subVectors(dragGroup.position, _planeHit);
+    e.stopPropagation();
+  }
+});
+
+window.addEventListener('mousemove', e => {
+  if (!dragGroup) return;
+  getMouseNDC(e);
+  raycaster.setFromCamera(mouse, camera);
+  if (raycaster.ray.intersectPlane(dragPlane, _planeHit)) {
+    dragGroup.position.copy(_planeHit).add(dragOffset);
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  dragGroup = null;
+});
+
 // ── Bounds (world units) — rooms wrap ─────────────────────────────────
 const BX = 26, BY = 14;
 
@@ -671,15 +726,18 @@ const BX = 26, BY = 14;
   requestAnimationFrame(animate);
 
   roomGroups.forEach(g => {
+    // Rotation always continues
+    g.rotation.x += g.userData.rotVel.x;
+    g.rotation.y += g.userData.rotVel.y;
+    g.rotation.z += g.userData.rotVel.z;
+
+    // Drift only when not being dragged
+    if (g === dragGroup) return;
     g.position.addScaledVector(g.userData.vel, 1);
     if (g.position.x >  BX) g.position.x = -BX;
     if (g.position.x < -BX) g.position.x =  BX;
     if (g.position.y >  BY) g.position.y = -BY;
     if (g.position.y < -BY) g.position.y =  BY;
-
-    g.rotation.x += g.userData.rotVel.x;
-    g.rotation.y += g.userData.rotVel.y;
-    g.rotation.z += g.userData.rotVel.z;
   });
 
   renderer.render(scene, camera);
