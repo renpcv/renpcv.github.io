@@ -104,6 +104,9 @@
     flex-direction: column;
     gap: 18px;
     pointer-events: all;
+    background: #000;
+    border: 1.5px solid #fff;
+    padding: 16px 20px;
   }
 
   .slider-row {
@@ -149,22 +152,6 @@
     border-radius: 50%;
     border: none;
     cursor: none;
-  }
-
-  /* Top-right: video counter */
-  #video-counter {
-    position: absolute;
-    top: 36px; right: 36px;
-    padding: 10px 16px;
-    background: #000;
-    border: 1.5px solid #fff;
-    font-family: 'Inter', sans-serif;
-    font-weight: 700;
-    font-style: italic;
-    font-size: 20px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #fff;
   }
 
   /* Bottom-left: mute */
@@ -278,10 +265,6 @@
     </div>
   </div>
 
-  <div id="video-counter">
-    <span id="v-cur">01</span>&thinsp;/&thinsp;<span id="v-tot">09</span>
-  </div>
-
   <button class="ctrl" id="btn-mute">Unmute</button>
   <button class="ctrl" id="btn-next">Next &rarr;</button>
 </div>
@@ -337,7 +320,6 @@ let muted = true;
 let ytPlayer = null;
 
 function pad(n) { return String(n+1).padStart(2,'0'); }
-document.getElementById('v-tot').textContent = String(VIDEO_IDS.length).padStart(2,'0');
 
 window.onYouTubeIframeAPIReady = function() {
   ytPlayer = new YT.Player('yt-player', {
@@ -369,7 +351,6 @@ function triggerHide() {
 
 function nextVideo() {
   vidIndex = (vidIndex + 1) % VIDEO_IDS.length;
-  document.getElementById('v-cur').textContent = pad(vidIndex);
   if (ytPlayer) {
     ytPlayer.loadVideoById(VIDEO_IDS[vidIndex]);
     if (muted) ytPlayer.mute();
