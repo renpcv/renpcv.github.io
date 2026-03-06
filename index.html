@@ -181,7 +181,23 @@
     padding: 11px 20px;
   }
 
-  /* ── Loading ── */
+  /* ── Now Playing text ── */
+  #now-playing {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-style: italic;
+    font-size: 60px;
+    color: #fff;
+    white-space: nowrap;
+    z-index: 5;
+    cursor: none;
+    user-select: none;
+    pointer-events: all;
+  }
   #loading {
     position: fixed;
     inset: 0;
@@ -232,6 +248,8 @@
 
 <div id="cursor"></div>
 
+<div id="now-playing">NOW PLAYING</div>
+
 <div id="loading">
   <div id="loading-word">Loading</div>
   <div id="loading-track"><div id="loading-fill"></div></div>
@@ -273,6 +291,39 @@
 
 <!-- YouTube IFrame API -->
 <script>
+// ── Draggable NOW PLAYING text ────────────────────────────────────────
+const nowPlaying = document.getElementById('now-playing');
+let npDragging = false;
+let npOffsetX = 0, npOffsetY = 0;
+
+// Convert from transform-centered to absolute position on first drag
+function initNPPosition() {
+  const rect = nowPlaying.getBoundingClientRect();
+  nowPlaying.style.transform = 'none';
+  nowPlaying.style.left = rect.left + 'px';
+  nowPlaying.style.top = rect.top + 'px';
+}
+
+nowPlaying.addEventListener('mousedown', e => {
+  if (nowPlaying.style.transform !== 'none' && nowPlaying.style.transform !== '') {
+    initNPPosition();
+  }
+  npDragging = true;
+  npOffsetX = e.clientX - nowPlaying.getBoundingClientRect().left;
+  npOffsetY = e.clientY - nowPlaying.getBoundingClientRect().top;
+  e.stopPropagation(); // prevent room drag from firing
+});
+
+window.addEventListener('mousemove', e => {
+  if (!npDragging) return;
+  nowPlaying.style.left = (e.clientX - npOffsetX) + 'px';
+  nowPlaying.style.top  = (e.clientY - npOffsetY) + 'px';
+});
+
+window.addEventListener('mouseup', () => {
+  npDragging = false;
+});
+
 // ── Cursor ────────────────────────────────────────────────────────────
 const cur = document.getElementById('cursor');
 document.addEventListener('mousemove', e => {
@@ -603,7 +654,9 @@ function clearRooms() {
 function spawnRooms(count, scaleMult) {
   clearRooms();
   for (let i = 0; i < count; i++) {
-    spawnRoom(i % CONFIGS.length, i, scaleMult);
+    const cfgIndex = i % CONFIGS.length;
+    const interiorVariant = Math.floor(Math.random() * CONFIGS[cfgIndex].interiors.length);
+    spawnRoom(cfgIndex, interiorVariant, scaleMult);
   }
 }
 
