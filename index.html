@@ -96,17 +96,23 @@
     color: #000;
   }
 
-  /* Top-left: interior slider */
+  /* Top-left: sliders panel */
   #slider-wrap {
     position: absolute;
     top: 36px; left: 36px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 18px;
     pointer-events: all;
   }
 
-  #slider-label {
+  .slider-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .slider-label {
     font-family: 'Inter', sans-serif;
     font-weight: 700;
     font-style: italic;
@@ -116,17 +122,17 @@
     color: #fff;
   }
 
-  #interior-slider {
+  input[type=range] {
     -webkit-appearance: none;
     appearance: none;
-    width: 130px;
+    width: 160px;
     height: 1px;
     background: rgba(255,255,255,0.2);
     outline: none;
     cursor: none;
   }
 
-  #interior-slider::-webkit-slider-thumb {
+  input[type=range]::-webkit-slider-thumb {
     -webkit-appearance: none;
     width: 9px; height: 9px;
     background: rgba(255,255,255,0.85);
@@ -135,8 +141,9 @@
     transition: transform 0.15s;
   }
 
-  #interior-slider:hover::-webkit-slider-thumb { transform: scale(1.5); }
-  #interior-slider::-moz-range-thumb {
+  input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.5); }
+
+  input[type=range]::-moz-range-thumb {
     width: 9px; height: 9px;
     background: rgba(255,255,255,0.85);
     border-radius: 50%;
@@ -238,8 +245,22 @@
 
 <div id="ui">
   <div id="slider-wrap">
-    <div id="slider-label">Interior</div>
-    <input type="range" id="interior-slider" min="0" max="100" value="0">
+    <div class="slider-row">
+      <div class="slider-label">Interior</div>
+      <input type="range" id="interior-slider" min="0" max="100" value="0">
+    </div>
+    <div class="slider-row">
+      <div class="slider-label">Size</div>
+      <input type="range" id="size-slider" min="-100" max="100" value="0">
+    </div>
+    <div class="slider-row">
+      <div class="slider-label">Count</div>
+      <input type="range" id="count-slider" min="-100" max="100" value="0">
+    </div>
+    <div class="slider-row">
+      <div class="slider-label">Speed</div>
+      <input type="range" id="speed-slider" min="-100" max="100" value="0">
+    </div>
   </div>
 
   <div id="video-counter">
@@ -513,12 +534,81 @@ function spawnRoom(cfgIndex, interiorVariant) {
   roomGroups.push(group);
 }
 
-// Spawn 3 of each size, cycling interior variants
-for (let size = 0; size < 3; size++) {
-  for (let v = 0; v < 3; v++) {
-    spawnRoom(size, v);
+const BASE_SCALE = 0.015;
+const BASE_SPEED = 1.0;
+const BASE_COUNT = 9;
+let currentScale = BASE_SCALE;
+let currentSpeedMult = BASE_SPEED;
+let currentCount = BASE_COUNT;
+
+// Reset all sliders to 0 on load
+window.addEventListener('load', () => {
+  document.getElementById('interior-slider').value = 0;
+  document.getElementById('size-slider').value = 0;
+  document.getElementById('count-slider').value = 0;
+  document.getElementById('speed-slider').value = 0;
+});
+
+function spawnRoom(cfgIndex, interiorVariant, scaleMult) {
+  const cfg = CONFIGS[cfgIndex];
+  const group = new THREE.Group();
+
+  group.position.set(rng(-22, 22), rng(-12, 12), rng(-5, 2));
+
+  const speed = BASE_SPEED;
+  group.userData.baseVel = new THREE.Vector3(
+    rng(-0.003, 0.003),
+    rng(-0.003, 0.003),
+    0
+  );
+  group.userData.vel = group.userData.baseVel.clone();
+  group.userData.baseRotVel = new THREE.Vector3(
+    rng(-0.0015, 0.0015),
+    rng(-0.0025, 0.0025),
+    rng(-0.0008, 0.0008)
+  );
+  group.userData.rotVel = group.userData.baseRotVel.clone();
+
+  const s = cfg.scale * scaleMult;
+  const intFile = cfg.interiors[interiorVariant % cfg.interiors.length];
+
+  stlLoader.load(cfg.shell, geo => {
+    geo.computeVertexNormals();
+    geo.center();
+    const mesh = new THREE.Mesh(geo, makeShellMat());
+    mesh.scale.setScalar(s);
+    mesh.userData.role = 'shell';
+    group.add(mesh);
+  });
+
+  stlLoader.load(intFile, geo => {
+    geo.computeVertexNormals();
+    geo.center();
+    const mesh = new THREE.Mesh(geo, makeInteriorMat());
+    mesh.scale.setScalar(s);
+    mesh.userData.role = 'interior';
+    mesh.renderOrder = 1;
+    group.add(mesh);
+  });
+
+  scene.add(group);
+  roomGroups.push(group);
+}
+
+function clearRooms() {
+  roomGroups.forEach(g => scene.remove(g));
+  roomGroups.length = 0;
+}
+
+function spawnRooms(count, scaleMult) {
+  clearRooms();
+  for (let i = 0; i < count; i++) {
+    spawnRoom(i % CONFIGS.length, i, scaleMult);
   }
 }
+
+// Initial spawn
+spawnRooms(BASE_COUNT, 1.0);
 
 // ── Interior slider ───────────────────────────────────────────────────
 document.getElementById('interior-slider').addEventListener('input', function() {
@@ -533,6 +623,43 @@ document.getElementById('interior-slider').addEventListener('input', function() 
         mesh.material.opacity = t;
       }
     });
+  });
+});
+
+// ── Size slider ───────────────────────────────────────────────────────
+document.getElementById('size-slider').addEventListener('input', function() {
+  // -100 → 0.2x, 0 → 1x, +100 → 5x
+  const t = this.value / 100;
+  const scaleMult = t >= 0 ? 1 + t * 4 : 1 + t * 0.8;
+  currentScale = scaleMult;
+  roomGroups.forEach(g => {
+    g.children.forEach(mesh => {
+      mesh.scale.setScalar(CONFIGS[0].scale * scaleMult);
+    });
+  });
+});
+
+// ── Count slider ──────────────────────────────────────────────────────
+document.getElementById('count-slider').addEventListener('input', function() {
+  // -100 → 1 room, 0 → 9 rooms, +100 → 20 rooms
+  const t = this.value / 100;
+  const newCount = t >= 0
+    ? Math.round(BASE_COUNT + t * 11)
+    : Math.max(1, Math.round(BASE_COUNT + t * 8));
+  if (newCount !== currentCount) {
+    currentCount = newCount;
+    spawnRooms(newCount, currentScale);
+  }
+});
+
+// ── Speed slider ──────────────────────────────────────────────────────
+document.getElementById('speed-slider').addEventListener('input', function() {
+  // -100 → 0.1x, 0 → 1x, +100 → 6x
+  const t = this.value / 100;
+  currentSpeedMult = t >= 0 ? 1 + t * 5 : 1 + t * 0.9;
+  roomGroups.forEach(g => {
+    g.userData.vel = g.userData.baseVel.clone().multiplyScalar(currentSpeedMult);
+    g.userData.rotVel = g.userData.baseRotVel.clone().multiplyScalar(currentSpeedMult);
   });
 });
 
