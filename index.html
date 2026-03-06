@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rooms</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@1,700&display=swap');
 
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -83,7 +83,8 @@
     color: #fff;
     font-family: 'Inter', sans-serif;
     font-weight: 700;
-    font-size: 13px;
+    font-style: italic;
+    font-size: 20px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     cursor: none;
@@ -109,7 +110,8 @@
   #slider-label {
     font-family: 'Inter', sans-serif;
     font-weight: 700;
-    font-size: 13px;
+    font-style: italic;
+    font-size: 20px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #fff;
@@ -152,7 +154,8 @@
     border: 1.5px solid #fff;
     font-family: 'Inter', sans-serif;
     font-weight: 700;
-    font-size: 13px;
+    font-style: italic;
+    font-size: 20px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #fff;
@@ -177,7 +180,7 @@
     position: fixed;
     inset: 0;
     z-index: 100;
-    background: #f2f0eb;
+    background: #000;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -194,16 +197,17 @@
   #loading-word {
     font-family: 'Inter', sans-serif;
     font-weight: 700;
-    font-size: 13px;
+    font-style: italic;
+    font-size: 20px;
     letter-spacing: 0.3em;
     text-transform: uppercase;
-    color: #aaa;
+    color: #fff;
   }
 
   #loading-track {
     width: 100px;
     height: 1px;
-    background: #ddd;
+    background: #333;
     position: relative;
     overflow: hidden;
   }
@@ -212,7 +216,7 @@
     position: absolute;
     top: 0; left: 0;
     height: 1px;
-    background: #555;
+    background: #fff;
     width: 0%;
     transition: width 0.4s ease;
   }
