@@ -200,19 +200,43 @@
     color: #fff;
   }
 
-  /* ── Now Playing text ── */
   #now-playing {
     position: fixed;
     font-family: 'Inter', sans-serif;
     font-weight: 700;
     font-style: italic;
-    font-size: 300px;
-    color: #fff;
+    font-size: 220px;
+    color: #00ff00;
     white-space: nowrap;
     z-index: 5;
     cursor: none;
     user-select: none;
     pointer-events: all;
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  #np-close {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-style: italic;
+    font-size: 20px;
+    line-height: 1;
+    background: #000;
+    border: 1.5px solid #fff;
+    color: #fff;
+    padding: 8px 12px;
+    cursor: none;
+    pointer-events: all;
+    flex-shrink: 0;
+    margin-top: 24px;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  #np-close:hover {
+    background: #fff;
+    color: #000;
   }
   #loading {
     position: fixed;
@@ -264,7 +288,7 @@
 
 <div id="cursor"></div>
 
-<div id="now-playing">NOW PLAYING</div>
+<div id="now-playing">NOW PLAYING<button id="np-close">✕</button></div>
 
 <div id="loading">
   <div id="loading-word">Loading</div>
@@ -296,7 +320,6 @@
       <input type="range" id="speed-slider" min="-100" max="100" value="0">
     </div>
     <div class="slider-row">
-      <div class="slider-label">Colour</div>
       <div id="color-selector">
         <button class="color-btn active" data-color="green">Green</button>
         <button class="color-btn" data-color="white">White</button>
@@ -340,6 +363,11 @@ window.addEventListener('mousemove', e => {
 
 window.addEventListener('mouseup', () => {
   npDragging = false;
+});
+
+document.getElementById('np-close').addEventListener('click', e => {
+  document.getElementById('now-playing').style.display = 'none';
+  e.stopPropagation();
 });
 
 // ── Cursor ────────────────────────────────────────────────────────────
