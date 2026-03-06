@@ -184,13 +184,10 @@
   /* ── Now Playing text ── */
   #now-playing {
     position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
     font-family: 'Inter', sans-serif;
     font-weight: 700;
     font-style: italic;
-    font-size: 60px;
+    font-size: 200px;
     color: #fff;
     white-space: nowrap;
     z-index: 5;
@@ -296,22 +293,20 @@ const nowPlaying = document.getElementById('now-playing');
 let npDragging = false;
 let npOffsetX = 0, npOffsetY = 0;
 
-// Convert from transform-centered to absolute position on first drag
-function initNPPosition() {
-  const rect = nowPlaying.getBoundingClientRect();
-  nowPlaying.style.transform = 'none';
-  nowPlaying.style.left = rect.left + 'px';
-  nowPlaying.style.top = rect.top + 'px';
-}
+// Set absolute centered position after fonts load so measurement is accurate
+window.addEventListener('load', () => {
+  const w = nowPlaying.offsetWidth;
+  const h = nowPlaying.offsetHeight;
+  nowPlaying.style.left = Math.round((window.innerWidth  - w) / 2) + 'px';
+  nowPlaying.style.top  = Math.round((window.innerHeight - h) / 2) + 'px';
+});
 
 nowPlaying.addEventListener('mousedown', e => {
-  if (nowPlaying.style.transform !== 'none' && nowPlaying.style.transform !== '') {
-    initNPPosition();
-  }
   npDragging = true;
-  npOffsetX = e.clientX - nowPlaying.getBoundingClientRect().left;
-  npOffsetY = e.clientY - nowPlaying.getBoundingClientRect().top;
-  e.stopPropagation(); // prevent room drag from firing
+  const rect = nowPlaying.getBoundingClientRect();
+  npOffsetX = e.clientX - rect.left;
+  npOffsetY = e.clientY - rect.top;
+  e.stopPropagation();
 });
 
 window.addEventListener('mousemove', e => {
