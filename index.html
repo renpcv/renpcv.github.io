@@ -1,1 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rooms</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=Space+Mono&display=swap');
 
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #000;
+    cursor: none;
+  }
+
+  #cursor {
+    position: fixed;
+    width: 7px; height: 7px;
+    background: rgba(255,255,255,0.9);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    transform: translate(-50%, -50%);
+    mix-blend-mode: difference;
+    transition: width 0.15s, height 0.15s;
+  }
+
+  /* ── Video layer ── */
+  #video-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    background: #000;
+  }
+
+  #video-bg iframe {
+    position: absolute;
+    top: 50%; left: 50%;
+    /* cover viewport maintaining 16:9 */
+    width: 177.78vh;
+    height: 100vh;
+    min-width: 100vw;
+    min-height: 56.25vw;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    border: none;
+  }
+
+  #video-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.5) 100%);
+    pointer-events: none;
+  }
+
+  /* ── Canvas layer ── */
+  #three-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* ── UI layer ── */
+  #ui {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .ctrl {
+    pointer-events: all;
+    background: rgba(255,255,255,0.07);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.75);
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: none;
+    transition: background 0.25s, border-color 0.25s, color 0.25s;
+  }
+
+  .ctrl:hover {
+    background: rgba(255,255,255,0.14);
+    border-color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.95);
+  }
+
+  /* Top-left: interior slider */
+  #slider-wrap {
+    position: absolute;
+    top: 36px; left: 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    pointer-events: all;
+  }
+
+  #slider-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
+  }
+
+  #interior-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 130px;
+    height: 1px;
+    background: rgba(255,255,255,0.2);
+    outline: none;
+    cursor: none;
+  }
+
+  #interior-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 9px; height: 9px;
+    background: rgba(255,255,255,0.85);
+    border-radius: 50%;
+    cursor: none;
+    transition: transform 0.15s;
+  }
+
+  #interior-slider:hover::-webkit-slider-thumb { transform: scale(1.5); }
+  #interior-slider::-moz-range-thumb {
+    width: 9px; height: 9px;
+    background: rgba(255,255,255,0.85);
+    border-radius: 50%;
+    border: none;
+    cursor: none;
+  }
+
+  /* Top-right: video counter */
+  #video-counter {
+    position: absolute;
+    top: 36px; right: 36px;
+    padding: 10px 16px;
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.1);
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+  }
+
+  /* Bottom-left: mute */
+  #btn-mute {
+    position: absolute;
+    bottom: 36px; left: 36px;
+    padding: 11px 20px;
+  }
+
+  /* Bottom-right: next */
+  #btn-next {
+    position: absolute;
+    bottom: 36px; right: 36px;
+    padding: 11px 20px;
+  }
+
+  /* ── Loading ── */
+  #loading {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: #f2f0eb;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    transition: opacity 1s ease;
+  }
+
+  #loading.fade {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #loading-word {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 11px;
+    font-weight: 300;
+    letter-spacing: 0.5em;
+    text-transform: uppercase;
+    color: #aaa;
+  }
+
+  #loading-track {
+    width: 100px;
+    height: 1px;
+    background: #ddd;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #loading-fill {
+    position: absolute;
+    top: 0; left: 0;
+    height: 1px;
+    background: #555;
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+</style>
+</head>
+<body>
+
+<div id="cursor"></div>
+
+<div id="loading">
+  <div id="loading-word">Loading</div>
+  <div id="loading-track"><div id="loading-fill"></div></div>
+</div>
+
+<div id="video-bg">
+  <div id="yt-player"></div>
+</div>
+
+<canvas id="three-canvas"></canvas>
+
+<div id="ui">
+  <div id="slider-wrap">
+    <div id="slider-label">Interior</div>
+    <input type="range" id="interior-slider" min="0" max="100" value="0">
+  </div>
+
+  <div id="video-counter">
+    <span id="v-cur">01</span>&thinsp;/&thinsp;<span id="v-tot">09</span>
+  </div>
+
+  <button class="ctrl" id="btn-mute">Unmute</button>
+  <button class="ctrl" id="btn-next">Next &rarr;</button>
+</div>
+
+<!-- YouTube IFrame API -->
+<script>
+// ── Cursor ────────────────────────────────────────────────────────────
+const cur = document.getElementById('cursor');
+document.addEventListener('mousemove', e => {
+  cur.style.left = e.clientX + 'px';
+  cur.style.top = e.clientY + 'px';
+});
+
+// ── Videos ───────────────────────────────────────────────────────────
+const VIDEO_IDS = [
+  'Apo80x4Wzz8','0wvbBK9Nlsc','ShJvheZHXdI','0_LDcKwbT2w',
+  'hkjDUERgCQw','62EUwsiXYXY','BtTlgxtoqhg','bxvmATwi9Q8','Q8K6HcbubTw'
+];
+
+let vidIndex = 0;
+let muted = true;
+let ytPlayer = null;
+
+function pad(n) { return String(n+1).padStart(2,'0'); }
+document.getElementById('v-tot').textContent = String(VIDEO_IDS.length).padStart(2,'0');
+
+window.onYouTubeIframeAPIReady = function() {
+  ytPlayer = new YT.Player('yt-player', {
+    videoId: VIDEO_IDS[0],
+    width: '100%', height: '100%',
+    playerVars: {
+      autoplay: 1, mute: 1, controls: 0,
+      loop: 0, modestbranding: 1,
+      rel: 0, iv_load_policy: 3,
+      disablekb: 1, playsinline: 1
+    },
+    events: {
+      onReady: ev => {
+        ev.target.playVideo();
+        triggerHide();
+      },
+      onStateChange: ev => {
+        // Auto-advance when video ends
+        if (ev.data === YT.PlayerState.ENDED) nextVideo();
+      }
+    }
+  });
+};
+
+function triggerHide() {
+  document.getElementById('loading-fill').style.width = '100%';
+  setTimeout(() => document.getElementById('loading').classList.add('fade'), 500);
+}
+
+function nextVideo() {
+  vidIndex = (vidIndex + 1) % VIDEO_IDS.length;
+  document.getElementById('v-cur').textContent = pad(vidIndex);
+  if (ytPlayer) {
+    ytPlayer.loadVideoById(VIDEO_IDS[vidIndex]);
+    if (muted) ytPlayer.mute();
+    ytPlayer.playVideo();
+  }
+}
+
+document.getElementById('btn-mute').addEventListener('click', () => {
+  muted = !muted;
+  document.getElementById('btn-mute').textContent = muted ? 'Unmute' : 'Mute';
+  if (ytPlayer) muted ? ytPlayer.mute() : ytPlayer.unMute();
+});
+
+document.getElementById('btn-next').addEventListener('click', nextVideo);
+
+// Load YT script
+(function() {
+  const s = document.createElement('script');
+  s.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(s);
+})();
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ── Renderer ──────────────────────────────────────────────────────────
+const canvas = document.getElementById('three-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x000000, 0);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 500);
+camera.position.z = 18;
+
+// Lighting
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+const d1 = new THREE.DirectionalLight(0xffffff, 0.85);
+d1.position.set(6, 10, 6);
+scene.add(d1);
+const d2 = new THREE.DirectionalLight(0xe8eaf0, 0.3);
+d2.position.set(-6, -4, -4);
+scene.add(d2);
+
+// ── Minimal STL Loader ────────────────────────────────────────────────
+class STLLoader {
+  load(url, cb, _p, onErr) {
+    fetch(url)
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+      .then(buf => cb(this.parse(buf)))
+      .catch(e => { if (onErr) onErr(e); else console.warn('STL load failed:', url, e); });
+  }
+
+  parse(data) {
+    return this._isBinary(data) ? this._parseBin(data) : this._parseASCII(data);
+  }
+
+  _isBinary(data) {
+    const dv = new DataView(data);
+    const declared = dv.getUint32(80, true);
+    return data.byteLength === 84 + declared * 50;
+  }
+
+  _parseBin(data) {
+    const dv = new DataView(data);
+    const n = dv.getUint32(80, true);
+    const pos = new Float32Array(n * 9);
+    const nor = new Float32Array(n * 9);
+    for (let i = 0; i < n; i++) {
+      const off = 84 + i * 50;
+      const nx = dv.getFloat32(off,    true);
+      const ny = dv.getFloat32(off+4,  true);
+      const nz = dv.getFloat32(off+8,  true);
+      for (let v = 0; v < 3; v++) {
+        const voff = off + 12 + v * 12;
+        const idx  = i * 9 + v * 3;
+        pos[idx]   = dv.getFloat32(voff,   true);
+        pos[idx+1] = dv.getFloat32(voff+4, true);
+        pos[idx+2] = dv.getFloat32(voff+8, true);
+        nor[idx] = nx; nor[idx+1] = ny; nor[idx+2] = nz;
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('normal',   new THREE.BufferAttribute(nor, 3));
+    return geo;
+  }
+
+  _parseASCII(data) {
+    const txt = new TextDecoder().decode(new Uint8Array(data));
+    const pos = [], nor = [];
+    const facetRe = /facet([\s\S]*?)endfacet/g;
+    let m;
+    while ((m = facetRe.exec(txt)) !== null) {
+      const blk = m[1];
+      const nv  = /normal\s+([\d+\-.e]+)\s+([\d+\-.e]+)\s+([\d+\-.e]+)/i.exec(blk);
+      if (!nv) continue;
+      for (const v of blk.matchAll(/vertex\s+([\d+\-.e]+)\s+([\d+\-.e]+)\s+([\d+\-.e]+)/gi)) {
+        pos.push(+v[1], +v[2], +v[3]);
+        nor.push(+nv[1], +nv[2], +nv[3]);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
+    geo.setAttribute('normal',   new THREE.BufferAttribute(new Float32Array(nor), 3));
+    return geo;
+  }
+}
+
+// ── Room definitions ──────────────────────────────────────────────────
+const CONFIGS = [
+  {
+    shell: 'assets/room_large_A.stl',
+    interiors: [
+      'assets/room_large_A_interior_1.stl',
+      'assets/room_large_A_interior_2.stl',
+      'assets/room_large_A_interior_3.stl',
+    ],
+    scale: 1.0,
+  },
+  {
+    shell: 'assets/room_medium_A.stl',
+    interiors: [
+      'assets/room_medium_A_interior_1.stl',
+      'assets/room_medium_A_interior_2.stl',
+      'assets/room_medium_A_interior_3.stl',
+    ],
+    scale: 1.0,
+  },
+  {
+    shell: 'assets/room_small_A.stl',
+    interiors: [
+      'assets/room_small_A_interior_1.stl',
+      'assets/room_small_A_interior_2.stl',
+      'assets/room_small_A_interior_3.stl',
+    ],
+    scale: 1.0,
+  },
+];
+
+const NUM_ROOMS = 9; // 3 of each size
+const stlLoader = new STLLoader();
+const roomGroups = [];
+
+// Shared material factories — each mesh gets its own clone for individual opacity
+function makeShellMat() {
+  return new THREE.MeshLambertMaterial({
+    color: 0xf8f6f2,
+    transparent: true,
+    opacity: 1.0,
+    side: THREE.DoubleSide,
+  });
+}
+
+function makeInteriorMat() {
+  return new THREE.MeshLambertMaterial({
+    color: 0xeae6de,
+    transparent: true,
+    opacity: 0.0,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+}
+
+function rng(min, max) { return min + Math.random() * (max - min); }
+
+function spawnRoom(cfgIndex, interiorVariant) {
+  const cfg = CONFIGS[cfgIndex];
+  const group = new THREE.Group();
+
+  // Spread randomly across a wide field
+  group.position.set(rng(-22, 22), rng(-12, 12), rng(-5, 2));
+
+  group.userData.vel = new THREE.Vector3(
+    rng(-0.003, 0.003),
+    rng(-0.003, 0.003),
+    0
+  );
+  group.userData.rotVel = new THREE.Vector3(
+    rng(-0.0006, 0.0006),
+    rng(-0.001,  0.001),
+    rng(-0.0003, 0.0003)
+  );
+
+  const intFile = cfg.interiors[interiorVariant % cfg.interiors.length];
+
+  stlLoader.load(cfg.shell, geo => {
+    geo.computeVertexNormals();
+    geo.center();
+    const mesh = new THREE.Mesh(geo, makeShellMat());
+    mesh.scale.setScalar(cfg.scale);
+    mesh.userData.role = 'shell';
+    group.add(mesh);
+  });
+
+  stlLoader.load(intFile, geo => {
+    geo.computeVertexNormals();
+    geo.center();
+    const mesh = new THREE.Mesh(geo, makeInteriorMat());
+    mesh.scale.setScalar(cfg.scale);
+    mesh.userData.role = 'interior';
+    mesh.renderOrder = 1;
+    group.add(mesh);
+  });
+
+  scene.add(group);
+  roomGroups.push(group);
+}
+
+// Spawn 3 of each size, cycling interior variants
+for (let size = 0; size < 3; size++) {
+  for (let v = 0; v < 3; v++) {
+    spawnRoom(size, v);
+  }
+}
+
+// ── Interior slider ───────────────────────────────────────────────────
+document.getElementById('interior-slider').addEventListener('input', function() {
+  const t = this.value / 100;
+  roomGroups.forEach(g => {
+    g.children.forEach(mesh => {
+      if (mesh.userData.role === 'shell') {
+        mesh.material.opacity = 1 - t;
+        mesh.material.depthWrite = (1 - t) > 0.5;
+      }
+      if (mesh.userData.role === 'interior') {
+        mesh.material.opacity = t;
+      }
+    });
+  });
+});
+
+// ── Bounds (world units) — rooms wrap ─────────────────────────────────
+const BX = 26, BY = 14;
+
+// ── Animate ───────────────────────────────────────────────────────────
+(function animate() {
+  requestAnimationFrame(animate);
+
+  roomGroups.forEach(g => {
+    g.position.addScaledVector(g.userData.vel, 1);
+    if (g.position.x >  BX) g.position.x = -BX;
+    if (g.position.x < -BX) g.position.x =  BX;
+    if (g.position.y >  BY) g.position.y = -BY;
+    if (g.position.y < -BY) g.position.y =  BY;
+
+    g.rotation.x += g.userData.rotVel.x;
+    g.rotation.y += g.userData.rotVel.y;
+    g.rotation.z += g.userData.rotVel.z;
+  });
+
+  renderer.render(scene, camera);
+})();
+
+// ── Resize ────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
