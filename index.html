@@ -191,12 +191,44 @@
     font-weight: 700;
     font-style: italic;
     font-size: 200px;
-    color: #fff;
+    color: #00ff00;
     white-space: nowrap;
     z-index: 5;
     cursor: none;
     user-select: none;
     pointer-events: all;
+  }
+
+  /* ── Colour selector ── */
+  #color-selector {
+    display: flex;
+    gap: 8px;
+  }
+
+  .color-btn {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-style: italic;
+    font-size: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: #000;
+    border: 1.5px solid rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.5);
+    padding: 5px 10px;
+    cursor: none;
+    transition: border-color 0.2s, color 0.2s;
+    pointer-events: all;
+  }
+
+  .color-btn:hover {
+    border-color: #fff;
+    color: #fff;
+  }
+
+  .color-btn.active {
+    border-color: #fff;
+    color: #fff;
   }
   #loading {
     position: fixed;
@@ -278,6 +310,14 @@
     <div class="slider-row">
       <div class="slider-label">Speed</div>
       <input type="range" id="speed-slider" min="-100" max="100" value="0">
+    </div>
+    <div class="slider-row">
+      <div class="slider-label">Colour</div>
+      <div id="color-selector">
+        <button class="color-btn active" data-color="green">Green</button>
+        <button class="color-btn" data-color="white">White</button>
+        <button class="color-btn" data-color="black">Black</button>
+      </div>
     </div>
   </div>
 
@@ -654,6 +694,14 @@ function spawnRooms(count, scaleMult) {
     const interiorVariant = Math.floor(Math.random() * CONFIGS[cfgIndex].interiors.length);
     spawnRoom(cfgIndex, interiorVariant, scaleMult);
   }
+  // Re-apply current color after spawn (meshes load async, use a small delay)
+  const activeBtn = document.querySelector('.color-btn.active');
+  if (activeBtn && activeBtn.dataset.color !== 'green') {
+    setTimeout(() => {
+      const threeColor = COLOR_MAP[activeBtn.dataset.color];
+      roomGroups.forEach(g => g.children.forEach(m => m.material.color.setHex(threeColor)));
+    }, 500);
+  }
 }
 
 // Initial spawn
@@ -765,6 +813,30 @@ window.addEventListener('mousemove', e => {
 
 window.addEventListener('mouseup', () => {
   dragGroup = null;
+});
+
+// ── Colour selector ───────────────────────────────────────────────────
+const COLOR_MAP = { green: 0x00ff00, white: 0xffffff, black: 0x000000 };
+const CSS_COLOR_MAP = { green: '#00ff00', white: '#ffffff', black: '#000000' };
+
+document.querySelectorAll('.color-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const key = btn.dataset.color;
+    const threeColor = COLOR_MAP[key];
+    const cssColor = CSS_COLOR_MAP[key];
+
+    // Update all room meshes
+    roomGroups.forEach(g => {
+      g.children.forEach(mesh => {
+        mesh.material.color.setHex(threeColor);
+      });
+    });
+
+    // Update NOW PLAYING text
+    document.getElementById('now-playing').style.color = cssColor;
+  });
 });
 
 // ── Bounds (world units) — rooms wrap ─────────────────────────────────
