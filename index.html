@@ -418,7 +418,7 @@ const CONFIGS = [
       'assets/room_large_A_interior_2.stl',
       'assets/room_large_A_interior_3.stl',
     ],
-    scale: 0.01,
+    scale: 0.015,
   },
   {
     shell: 'assets/room_medium_A.stl',
@@ -427,7 +427,7 @@ const CONFIGS = [
       'assets/room_medium_A_interior_2.stl',
       'assets/room_medium_A_interior_3.stl',
     ],
-    scale: 0.01,
+    scale: 0.015,
   },
   {
     shell: 'assets/room_small_A.stl',
@@ -436,7 +436,7 @@ const CONFIGS = [
       'assets/room_small_A_interior_2.stl',
       'assets/room_small_A_interior_3.stl',
     ],
-    scale: 0.01,
+    scale: 0.015,
   },
 ];
 
@@ -479,9 +479,9 @@ function spawnRoom(cfgIndex, interiorVariant) {
     0
   );
   group.userData.rotVel = new THREE.Vector3(
-    rng(-0.0006, 0.0006),
-    rng(-0.001,  0.001),
-    rng(-0.0003, 0.0003)
+    rng(-0.0015, 0.0015),
+    rng(-0.0025,  0.0025),
+    rng(-0.0008, 0.0008)
   );
 
   const intFile = cfg.interiors[interiorVariant % cfg.interiors.length];
