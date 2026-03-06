@@ -168,6 +168,38 @@
     padding: 11px 20px;
   }
 
+  /* ── Colour selector ── */
+  #color-selector {
+    display: flex;
+    gap: 8px;
+  }
+
+  .color-btn {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-style: italic;
+    font-size: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: #000;
+    border: 1.5px solid rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.5);
+    padding: 5px 10px;
+    cursor: none;
+    pointer-events: all;
+    transition: border-color 0.2s, color 0.2s;
+  }
+
+  .color-btn:hover {
+    border-color: #fff;
+    color: #fff;
+  }
+
+  .color-btn.active {
+    border-color: #fff;
+    color: #fff;
+  }
+
   /* ── Now Playing text ── */
   #now-playing {
     position: fixed;
@@ -262,6 +294,14 @@
     <div class="slider-row">
       <div class="slider-label">Speed</div>
       <input type="range" id="speed-slider" min="-100" max="100" value="0">
+    </div>
+    <div class="slider-row">
+      <div class="slider-label">Colour</div>
+      <div id="color-selector">
+        <button class="color-btn active" data-color="green">Green</button>
+        <button class="color-btn" data-color="white">White</button>
+        <button class="color-btn" data-color="black">Black</button>
+      </div>
     </div>
   </div>
 
@@ -771,6 +811,22 @@ const BX = 26, BY = 14;
 
   renderer.render(scene, camera);
 })();
+
+// ── Colour selector ───────────────────────────────────────────────────
+const COLOR_MAP     = { green: 0x00ff00, white: 0xffffff, black: 0x000000 };
+const CSS_COLOR_MAP = { green: '#00ff00', white: '#ffffff', black: '#000000' };
+
+document.querySelectorAll('.color-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const key = btn.dataset.color;
+    roomGroups.forEach(g => {
+      g.children.forEach(m => m.material.color.setHex(COLOR_MAP[key]));
+    });
+    document.getElementById('now-playing').style.color = CSS_COLOR_MAP[key];
+  });
+});
 
 // ── Resize ────────────────────────────────────────────────────────────
 window.addEventListener('resize', () => {
