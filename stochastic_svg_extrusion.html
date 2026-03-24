@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stochastic SVG Extrusion</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #ffffff;
+            color: #000;
+            font-family: monospace;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            width: 260px;
+            pointer-events: none;
+        }
+        #ui button, #ui .file-upload-label, #ui input, #ui label {
+            pointer-events: auto;
+        }
+        h2 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #000;
+            font-family: monospace;
+            font-weight: normal;
+        }
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        button, .file-upload-label {
+            background: transparent;
+            color: #000;
+            border: none;
+            padding: 5px 0;
+            cursor: pointer;
+            border-radius: 0;
+            font-weight: normal;
+            font-family: monospace;
+            text-align: left;
+            transition: font-weight 0.1s;
+        }
+        button:hover, .file-upload-label:hover {
+            background: transparent;
+            font-weight: bold;
+        }
+        .primary-btn {
+            color: blue !important;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        #controls {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        label {
+            display: flex;
+            flex-direction: column;
+            font-size: 13px;
+            gap: 5px;
+            color: #000;
+        }
+        .label-header {
+            display: flex;
+            justify-content: space-between;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            cursor: pointer;
+            background: transparent;
+            margin: 8px 0;
+        }
+        input[type="range"]:focus {
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 1px;
+            background: #000;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #000;
+            margin-top: -5.5px;
+        }
+        input[type="range"]::-moz-range-track {
+            width: 100%;
+            height: 1px;
+            background: #000;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            border: none;
+            border-radius: 50%;
+            background: #000;
+        }
+        #loading {
+            display: none;
+            color: #000;
+            font-size: 13px;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        #info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: #000;
+            font-size: 12px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <h2>SVG Shape Aggregator</h2>
+        
+        <label class="file-upload-label primary-btn">
+            1. Select SVG File
+            <input type="file" id="fileInput" accept=".svg">
+        </label>
+        
+        <div id="loading">Processing SVG... Please wait.</div>
+
+        <div id="controls">
+            <label>
+                <div class="label-header">
+                    <span>Instances</span>
+                    <span id="instanceVal">150</span>
+                </div>
+                <input type="range" id="instanceCount" min="10" max="1000" value="150" step="10">
+            </label>
+            <label>
+                <div class="label-header">
+                    <span>Aggregation Spread</span>
+                    <span id="spreadVal">25</span>
+                </div>
+                <input type="range" id="spreadSize" min="0" max="50" value="25" step="1">
+            </label>
+            <label>
+                <div class="label-header">
+                    <span>Instance Stretch</span>
+                    <span id="depthVal">50</span>
+                </div>
+                <input type="range" id="depthSize" min="5" max="200" value="50" step="5">
+            </label>
+            <label>
+                <div class="label-header">
+                    <span>Orthogonality</span>
+                    <span id="orthoVal">50</span>
+                </div>
+                <input type="range" id="orthoSize" min="0" max="100" value="50" step="1">
+            </label>
+            <label>
+                <div class="label-header">
+                    <span>Shape Intersecting</span>
+                    <span id="intersectVal">50</span>
+                </div>
+                <input type="range" id="intersectSize" min="0" max="100" value="50" step="1">
+            </label>
+            
+            <div class="btn-group">
+                <button id="regenerateBtn" class="primary-btn">2. Generate Aggregation</button>
+                <button id="randomizeColorBtn">Shuffle Color Palette</button>
+                <button id="exportObjBtn">Export OBJ</button>
+                <button id="exportGlbBtn">Export GLB (With Color)</button>
+                <button id="exportPngBtn">Export PNG</button>
+                <button id="clearBtn" style="margin-top:10px;">Clear Scene</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="info">Left Click: Rotate | Right Click: Pan | Scroll: Zoom</div>
+    
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
+        import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
+        import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
+        import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+
+        // ---- UI ELEMENTS ---- //
+        const fileInput = document.getElementById('fileInput');
+        const countInput = document.getElementById('instanceCount');
+        const spreadInput = document.getElementById('spreadSize');
+        const depthInput = document.getElementById('depthSize');
+        const orthoInput = document.getElementById('orthoSize');
+        const intersectInput = document.getElementById('intersectSize');
+        const countVal = document.getElementById('instanceVal');
+        const spreadVal = document.getElementById('spreadVal');
+        const depthVal = document.getElementById('depthVal');
+        const orthoVal = document.getElementById('orthoVal');
+        const intersectVal = document.getElementById('intersectVal');
+        const regenerateBtn = document.getElementById('regenerateBtn');
+        const randomizeColorBtn = document.getElementById('randomizeColorBtn');
+        const exportObjBtn = document.getElementById('exportObjBtn');
+        const exportGlbBtn = document.getElementById('exportGlbBtn');
+        const exportPngBtn = document.getElementById('exportPngBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const loadingIndicator = document.getElementById('loading');
+
+        countInput.addEventListener('input', (e) => countVal.innerText = e.target.value);
+        spreadInput.addEventListener('input', (e) => spreadVal.innerText = e.target.value);
+        depthInput.addEventListener('input', (e) => depthVal.innerText = e.target.value);
+        orthoInput.addEventListener('input', (e) => orthoVal.innerText = e.target.value);
+        intersectInput.addEventListener('input', (e) => intersectVal.innerText = e.target.value);
+
+        // ---- SCENE SETUP ---- //
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
+        scene.fog = new THREE.FogExp2(0xffffff, 0.0015);
+        
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 5000);
+        camera.position.set(0, 200, 600);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap pixel ratio for performance
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.VSMShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.6;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.5;
+
+        // ---- MULTIPLY LIGHTING ---- //
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
+        dirLight.position.set(500, 800, 500);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.near = 10;
+        dirLight.shadow.camera.far = 3000;
+        dirLight.shadow.camera.left = -800;
+        dirLight.shadow.camera.right = 800;
+        dirLight.shadow.camera.top = 800;
+        dirLight.shadow.camera.bottom = -800;
+        dirLight.shadow.bias = -0.001;
+        scene.add(dirLight);
+
+        const fillLight = new THREE.DirectionalLight(0x4466ff, 0.8);
+        fillLight.position.set(-500, 200, -500);
+        scene.add(fillLight);
+
+        const rimLight = new THREE.DirectionalLight(0xffaa44, 0.6);
+        rimLight.position.set(0, -500, -200);
+        scene.add(rimLight);
+
+        // Main group holding the instances
+        const currentAggregatesGroup = new THREE.Group();
+        scene.add(currentAggregatesGroup);
+
+        let svgShapes = []; // Stores the raw shapes of the loaded SVG
+        
+        // Beautiful vibrant color palettes for generation
+        const palettes = [
+            [0xFF595E, 0xFFCA3A, 0x8AC926, 0x1982C4, 0x6A4C93], // Rainbow
+            [0x2b2d42, 0x8d99ae, 0xedf2f4, 0xef233c, 0xd90429], // Bold Red/Grey
+            [0x003049, 0xd62828, 0xf77f00, 0xfcbf49, 0xeae2b7], // Fiery
+            [0x112240, 0x233554, 0x64ffda, 0xccd6f6, 0x8892b0], // Oceanic Tech
+            [0x3a0ca3, 0x4361ee, 0x4cc9f0, 0xf72585, 0x7209b7]  // Cyberpunk Synthwave
+        ];
+
+        // ---- LOGIC ---- //
+        
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            loadingIndicator.style.display = 'block';
+
+            // Reset sliders to default application parameters
+            countInput.value = 150; countVal.innerText = '150';
+            spreadInput.value = 25; spreadVal.innerText = '25';
+            depthInput.value = 50; depthVal.innerText = '50';
+            orthoInput.value = 50; orthoVal.innerText = '50';
+            intersectInput.value = 50; intersectVal.innerText = '50';
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const contents = event.target.result;
+                setTimeout(() => processSVG(contents), 50); // Small timeout to allow UI to update
+            };
+            reader.readAsText(file);
+        });
+
+        regenerateBtn.addEventListener('click', () => {
+            if (svgShapes.length > 0) {
+                loadingIndicator.style.display = 'block';
+                setTimeout(() => {
+                    generateAggregation(svgShapes);
+                    loadingIndicator.style.display = 'none';
+                }, 50);
+            } else {
+                alert('Please load an SVG file first.');
+            }
+        });
+
+        clearBtn.addEventListener('click', () => {
+            cleanUp();
+            svgShapes = [];
+            fileInput.value = '';
+        });
+
+        randomizeColorBtn.addEventListener('click', () => {
+            if (currentAggregatesGroup.children.length === 0) return;
+            const instanceMesh = currentAggregatesGroup.children.find(child => child.isInstancedMesh);
+            if (!instanceMesh) return;
+
+            const count = instanceMesh.count;
+            const activePalette = palettes[Math.floor(Math.random() * palettes.length)];
+            const colorObj = new THREE.Color();
+
+            for (let i = 0; i < count; i++) {
+                const randomColorHex = activePalette[Math.floor(Math.random() * activePalette.length)];
+                colorObj.setHex(randomColorHex);
+                colorObj.offsetHSL((Math.random() - 0.5) * 0.05, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.1);
+                instanceMesh.setColorAt(i, colorObj);
+            }
+            instanceMesh.instanceColor.needsUpdate = true;
+        });
+
+        exportGlbBtn.addEventListener('click', () => {
+            if (currentAggregatesGroup.children.length === 0) {
+                alert('Nothing to export!');
+                return;
+            }
+            loadingIndicator.innerText = "Exporting GLB... this may take a moment.";
+            loadingIndicator.style.display = 'block';
+
+            setTimeout(() => {
+                const exporter = new GLTFExporter();
+                const exportGroup = new THREE.Group();
+                const colorObj = new THREE.Color();
+                
+                // Convert InstancedMesh back to regular Meshes to guarantee unique color materials survive generic glTF loaders
+                currentAggregatesGroup.children.forEach(child => {
+                    if (child.isInstancedMesh) {
+                        const count = child.count;
+                        const geom = child.geometry;
+                        const baseMat = child.material;
+                        const matrix = new THREE.Matrix4();
+                        
+                        for (let i = 0; i < count; i++) {
+                            child.getMatrixAt(i, matrix);
+                            child.getColorAt(i, colorObj);
+                            
+                            // Clone material and assign the instance color so it embeds perfectly
+                            const mat = baseMat.clone();
+                            mat.color.copy(colorObj);
+                            
+                            const mesh = new THREE.Mesh(geom, mat);
+                            mesh.applyMatrix4(matrix);
+                            // Apply group's current animated Y position to capture it properly
+                            mesh.position.y += currentAggregatesGroup.position.y;
+                            mesh.updateMatrixWorld(true);
+                            exportGroup.add(mesh);
+                        }
+                    } else if (child.isMesh) {
+                        exportGroup.add(child.clone());
+                    }
+                });
+
+                exporter.parse(
+                    exportGroup,
+                    (glbArrayBuffer) => {
+                        exportGroup.clear();
+                        const blob = new Blob([glbArrayBuffer], { type: 'application/octet-stream' });
+                        const url = URL.createObjectURL(blob);
+                        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.href = url;
+                        link.download = `stochastic_aggregation_${timestamp}.glb`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                        
+                        loadingIndicator.style.display = 'none';
+                        loadingIndicator.innerText = "Processing SVG... Please wait.";
+                    },
+                    (error) => {
+                        console.error('An error happened during GLB export', error);
+                        loadingIndicator.style.display = 'none';
+                        loadingIndicator.innerText = "Processing SVG... Please wait.";
+                    },
+                    { binary: true } // Export as GLB
+                );
+            }, 50);
+        });
+
+        exportObjBtn.addEventListener('click', () => {
+            if (currentAggregatesGroup.children.length === 0) {
+                alert('Nothing to export!');
+                return;
+            }
+            loadingIndicator.innerText = "Exporting OBJ... this may take a moment.";
+            loadingIndicator.style.display = 'block';
+
+            setTimeout(() => {
+                const exporter = new OBJExporter();
+                const exportGroup = new THREE.Group();
+                
+                // Convert InstancedMesh back to regular Meshes for OBJ Exporter
+                currentAggregatesGroup.children.forEach(child => {
+                    if (child.isInstancedMesh) {
+                        const count = child.count;
+                        const geom = child.geometry;
+                        const mat = child.material;
+                        const matrix = new THREE.Matrix4();
+                        for (let i = 0; i < count; i++) {
+                            child.getMatrixAt(i, matrix);
+                            const mesh = new THREE.Mesh(geom, mat);
+                            mesh.applyMatrix4(matrix);
+                            // Apply group's current animated Y position to capture it properly
+                            mesh.position.y += currentAggregatesGroup.position.y;
+                            mesh.updateMatrixWorld(true);
+                            exportGroup.add(mesh);
+                        }
+                    } else if (child.isMesh) {
+                        exportGroup.add(child.clone());
+                    }
+                });
+
+                const result = exporter.parse(exportGroup);
+                exportGroup.clear();
+                
+                const blob = new Blob([result], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                const link = document.createElement('a');
+                link.style.display = 'none';
+                link.href = url;
+                link.download = `stochastic_aggregation_${timestamp}.obj`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                
+                loadingIndicator.style.display = 'none';
+                loadingIndicator.innerText = "Processing SVG... Please wait.";
+            }, 50);
+        });
+
+        exportPngBtn.addEventListener('click', () => {
+            renderer.render(scene, camera);
+            const dataURL = renderer.domElement.toDataURL('image/png');
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const link = document.createElement('a');
+            link.style.display = 'none';
+            link.href = dataURL;
+            link.download = `frameshots_aggregation_${timestamp}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+
+        function cleanUp() {
+            if(currentAggregatesGroup.children.length > 0) {
+                const mesh = currentAggregatesGroup.children[0];
+                if (mesh) {
+                    mesh.geometry.dispose();
+                    mesh.material.dispose();
+                    currentAggregatesGroup.remove(mesh);
+                }
+            }
+        }
+
+        function processSVG(svgText) {
+            const loader = new SVGLoader();
+            let svgData;
+            try {
+                svgData = loader.parse(svgText);
+            } catch(err) {
+                alert("Failed to parse SVG");
+                loadingIndicator.style.display = 'none';
+                return;
+            }
+
+            svgShapes = [];
+
+            // Extract all paths and shapes
+            svgData.paths.forEach((path) => {
+                const shapes = SVGLoader.createShapes(path);
+                shapes.forEach((shape) => {
+                    svgShapes.push({ shape: shape, color: path.color });
+                });
+            });
+
+            if (svgShapes.length === 0) {
+                alert("No valid shapes found in SVG.");
+                loadingIndicator.style.display = 'none';
+                return;
+            }
+
+            // Auto generate initial structure on load
+            generateAggregation(svgShapes);
+            loadingIndicator.style.display = 'none';
+        }
+
+        function generateAggregation(shapesData) {
+            cleanUp();
+
+            const count = parseInt(countInput.value);
+            const spread = parseFloat(spreadInput.value);
+            const maxDepth = parseFloat(depthInput.value);
+            
+            const tempGeometries = [];
+            const baseShapes = []; // Store original data for pristine Quad OBJ Export
+
+            // 1. Create one merged "base module" geometry from the SVG with random depths per shape
+            shapesData.forEach(item => {
+                // Stochastic random depth per individual shape in the SVG outline
+                const depth = Math.random() * maxDepth + 2; 
+                baseShapes.push({ shape: item.shape, depth: depth });
+                
+                const extrudeSettings = {
+                    depth: depth,
+                    bevelEnabled: false, // Linear extrusions to keep geometry lightweight
+                    curveSegments: 8
+                };
+                
+                try {
+                    const geometry = new THREE.ExtrudeGeometry(item.shape, extrudeSettings);
+                    tempGeometries.push(geometry);
+                } catch(e) {
+                    console.warn("Could not extrude a shape", e);
+                }
+            });
+
+            if (tempGeometries.length === 0) return;
+
+            const mergedGeometry = BufferGeometryUtils.mergeGeometries(tempGeometries, false);
+            
+            // Center the geometry so scaling/rotating looks natural
+            mergedGeometry.computeBoundingBox();
+            const box = mergedGeometry.boundingBox;
+            const center = new THREE.Vector3();
+            box.getCenter(center);
+            
+            // We want to center it, but also rotate it so SVG lies on the floor (XZ plane) typically
+            mergedGeometry.translate(-center.x, -center.y, -center.z);
+            mergedGeometry.rotateX(Math.PI / 2); // Flip it flat
+
+            let baseMatrix = new THREE.Matrix4()
+                .multiply(new THREE.Matrix4().makeRotationX(Math.PI / 2))
+                .multiply(new THREE.Matrix4().makeTranslation(-center.x, -center.y, -center.z));
+
+            // Size standardization: normalize arbitrary SVG paths to a baseline scale
+            const size = new THREE.Vector3();
+            box.getSize(size);
+            const maxDim = Math.max(size.x, size.y, size.z);
+            if (maxDim > 0) {
+                const scaleF = 50 / maxDim; // standardize baseline mapping
+                mergedGeometry.scale(scaleF, scaleF, scaleF);
+                baseMatrix = new THREE.Matrix4().makeScale(scaleF, scaleF, scaleF).multiply(baseMatrix);
+                mergedGeometry.computeBoundingBox();
+                // Update the box reference to the new scale so instance distances map correctly
+                box.copy(mergedGeometry.boundingBox);
+            }
+            
+            // Store generation logic for quad exporter
+            currentAggregatesGroup.userData.baseShapes = baseShapes;
+            currentAggregatesGroup.userData.baseMatrix = baseMatrix;
+
+            // 2. Aggregate the base module stochastically with InstancedMesh
+            const material = new THREE.MeshToonMaterial();
+
+            const instancedMesh = new THREE.InstancedMesh(mergedGeometry, material, count);
+            instancedMesh.castShadow = true;
+            instancedMesh.receiveShadow = true;
+            
+            const dummy = new THREE.Object3D();
+            const colorObj = new THREE.Color();
+            
+            const activePalette = palettes[Math.floor(Math.random() * palettes.length)];
+
+            // Generation approach: Branching space colonization
+            const baseSize = new THREE.Vector3();
+            box.getSize(baseSize);
+
+            // 100 Orthogonality = 0 randomness
+            const orthoRatio = 1.0 - (parseFloat(orthoInput.value) / 100);
+            const intersectRatio = parseFloat(intersectInput.value) / 100;
+            const spreadRatio = spread / 50; // [0, 1] mapped from 0-50 slider
+
+            const instances = [];
+
+            for (let i = 0; i < count; i++) {
+                
+                // Stochastic scale
+                const baseScale = Math.random() * 0.4 + 0.1;
+                const scaleVec = new THREE.Vector3(baseScale, baseScale, baseScale);
+                
+                if (Math.random() > 0.85) {
+                    const axis = Math.floor(Math.random() * 3);
+                    if (axis === 0) scaleVec.x *= (Math.random() * 4 + 2);
+                    else if (axis === 1) scaleVec.y *= (Math.random() * 4 + 2);
+                    else scaleVec.z *= (Math.random() * 4 + 2);
+                }
+
+                // Stochastic rotation with orthogonal snapping interpolation
+                const rx = Math.random() * Math.PI * 2;
+                const ry = Math.random() * Math.PI * 2;
+                const rz = Math.random() * Math.PI * 2;
+                const sx = Math.round(rx / (Math.PI/2)) * (Math.PI/2);
+                const sy = Math.round(ry / (Math.PI/2)) * (Math.PI/2);
+                const sz = Math.round(rz / (Math.PI/2)) * (Math.PI/2);
+                
+                const rotVec = new THREE.Euler(
+                    THREE.MathUtils.lerp(sx, rx, orthoRatio),
+                    THREE.MathUtils.lerp(sy, ry, orthoRatio),
+                    THREE.MathUtils.lerp(sz, rz, orthoRatio)
+                );
+
+                let posVec = new THREE.Vector3();
+
+                if (i > 0) {
+                    // Extreme spread controls: 0 = tight hub (power near 0), 0.5 = bushy (uniform), 1.0 = snake (power near i)
+                    let parentIdx;
+                    if (spreadRatio < 0.5) {
+                        const normalized = spreadRatio * 2.0;
+                        const power = THREE.MathUtils.lerp(30, 1, normalized);
+                        parentIdx = Math.floor(Math.pow(Math.random(), power) * i);
+                    } else {
+                        const normalized = (spreadRatio - 0.5) * 2.0;
+                        const power = THREE.MathUtils.lerp(1, 40, normalized);
+                        parentIdx = Math.floor((1.0 - Math.pow(Math.random(), power)) * i);
+                    }
+                    if (parentIdx >= i) parentIdx = i - 1; // safety bound
+
+                    const parentData = instances[parentIdx];
+
+                    let dir = new THREE.Vector3(
+                        Math.random() - 0.5,
+                        Math.random() - 0.5,
+                        Math.random() - 0.5
+                    ).normalize();
+
+                    // Snap origin direction towards axes
+                    let snappedDir = new THREE.Vector3(0,0,0);
+                    const absX = Math.abs(dir.x);
+                    const absY = Math.abs(dir.y);
+                    const absZ = Math.abs(dir.z);
+                    if (absX > absY && absX > absZ) snappedDir.x = Math.sign(dir.x);
+                    else if (absY > absX && absY > absZ) snappedDir.y = Math.sign(dir.y);
+                    else snappedDir.z = Math.sign(dir.z);
+
+                    dir.lerp(snappedDir, 1.0 - orthoRatio).normalize();
+
+                    // Evaluate OBB (Oriented Bounding Box) projections along placement vector to find non-intersecting distance constraint
+                    const boxExtentP = baseSize.clone().multiply(parentData.scale);
+                    const boxExtentI = baseSize.clone().multiply(scaleVec);
+
+                    const qP = new THREE.Quaternion().setFromEuler(parentData.rot).invert();
+                    const locDirP = dir.clone().applyQuaternion(qP);
+                    const radiusP = 0.5 * (Math.abs(locDirP.x * boxExtentP.x) + Math.abs(locDirP.y * boxExtentP.y) + Math.abs(locDirP.z * boxExtentP.z));
+
+                    const qI = new THREE.Quaternion().setFromEuler(rotVec).invert();
+                    const locDirI = dir.clone().applyQuaternion(qI);
+                    const radiusI = 0.5 * (Math.abs(locDirI.x * boxExtentI.x) + Math.abs(locDirI.y * boxExtentI.y) + Math.abs(locDirI.z * boxExtentI.z));
+
+                    const touchDist = radiusP + radiusI;
+                    
+                    // Shape Intersection logic
+                    const gap = THREE.MathUtils.lerp(1.0, Math.random(), intersectRatio);
+                    const finalDist = touchDist * gap;
+
+                    posVec = parentData.pos.clone().add(dir.clone().multiplyScalar(finalDist));
+                }
+
+                instances.push({
+                    pos: posVec,
+                    rot: rotVec,
+                    scale: scaleVec
+                });
+
+                dummy.position.copy(posVec);
+                dummy.rotation.copy(rotVec);
+                dummy.scale.copy(scaleVec);
+
+                dummy.updateMatrix();
+                instancedMesh.setMatrixAt(i, dummy.matrix);
+
+                // Stochastic coloring from palette
+                const randomColorHex = activePalette[Math.floor(Math.random() * activePalette.length)];
+                colorObj.setHex(randomColorHex);
+                // add slight noise to color
+                colorObj.offsetHSL(
+                    (Math.random() - 0.5) * 0.05,
+                    (Math.random() - 0.5) * 0.1,
+                    (Math.random() - 0.5) * 0.1
+                );
+                
+                instancedMesh.setColorAt(i, colorObj);
+            }
+            
+            instancedMesh.instanceMatrix.needsUpdate = true;
+            instancedMesh.instanceColor.needsUpdate = true;
+
+            currentAggregatesGroup.add(instancedMesh);
+        }
+
+        // ---- RESIZE LOGIC ---- //
+        window.addEventListener('resize', onWindowResize, false);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // ---- ANIMATION LOOP ---- //
+        const clock = new THREE.Clock();
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            
+            controls.update();
+
+            // Gentle floating/breathing animation for the whole aggregation
+            if (currentAggregatesGroup && currentAggregatesGroup.children.length > 0) {
+                const time = clock.getElapsedTime();
+                currentAggregatesGroup.position.y = Math.sin(time * 0.5) * 10;
+            }
+
+            renderer.render(scene, camera);
+        }
+        
+        animate();
+    </script>
+</body>
+</html>
