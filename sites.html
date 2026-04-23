@@ -195,8 +195,8 @@
                 font-style: italic;
                 font-size: clamp(36px, 4vw, 56px);
                 letter-spacing: 0.01em;
+                text-transform: uppercase;
                 color: #fff;
-                text-shadow: 0 2px 14px rgba(0, 0, 0, 0.75);
                 pointer-events: none;
                 white-space: nowrap;
                 line-height: 1;
@@ -215,6 +215,18 @@
                 bottom: 36px;
                 z-index: 20;
                 padding: 11px 20px;
+            }
+
+            /* Home link — lower left (uses .ctrl class, but case preserved) */
+            #home-btn {
+                position: fixed;
+                left: 36px;
+                bottom: 36px;
+                z-index: 20;
+                padding: 11px 20px;
+                text-transform: none;
+                text-decoration: none;
+                display: inline-block;
             }
 
             /* Document flip buttons — upper right (use .ctrl class, just arrows) */
@@ -310,6 +322,10 @@
         <div id="title"><span id="title-text"></span></div>
 
         <button class="ctrl" id="next-btn">Next &rarr;</button>
+
+        <a class="ctrl" id="home-btn" href="https://renpcv.github.io"
+            >nodalKino</a
+        >
 
         <script>
             // ===========================================================================
