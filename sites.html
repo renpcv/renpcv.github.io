@@ -13,6 +13,8 @@
         <script src="https://cesium.com/downloads/cesiumjs/releases/1.124/Build/Cesium/Cesium.js"></script>
 
         <style>
+            @import url("https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,700;1,700&display=swap");
+
             :root {
                 --fg: #f2f2f2;
                 --fg-dim: rgba(242, 242, 242, 0.72);
@@ -35,10 +37,45 @@
                 background: #000;
                 color: var(--fg);
                 font-family:
-                    -apple-system, "Helvetica Neue", Helvetica, Arial,
+                    "Inter",
+                    -apple-system,
+                    "Helvetica Neue",
+                    Helvetica,
+                    Arial,
                     sans-serif;
                 font-feature-settings: "kern" 1;
                 -webkit-font-smoothing: antialiased;
+            }
+
+            /* Shared control style — matches index.html .ctrl */
+            .ctrl {
+                pointer-events: all;
+                background: #000;
+                border: 1.5px solid #fff;
+                color: #fff;
+                font-family: "Inter", sans-serif;
+                font-weight: 700;
+                font-style: italic;
+                font-size: 20px;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                cursor: pointer;
+                transition:
+                    background 0.2s,
+                    color 0.2s;
+            }
+            .ctrl:hover {
+                background: #fff;
+                border-color: #fff;
+                color: #000;
+            }
+            .ctrl:disabled {
+                opacity: 0.3;
+                cursor: default;
+            }
+            .ctrl:disabled:hover {
+                background: #000;
+                color: #fff;
             }
 
             /* Cesium container — full-screen background */
@@ -153,42 +190,55 @@
                 bottom: 72px;
                 transform: translateX(-50%);
                 z-index: 10;
+                font-family: "Inter", sans-serif;
+                font-weight: 700;
                 font-style: italic;
-                font-weight: 400;
-                font-size: clamp(28px, 3.2vw, 44px);
+                font-size: clamp(36px, 4vw, 56px);
                 letter-spacing: 0.01em;
                 color: #fff;
                 text-shadow: 0 2px 14px rgba(0, 0, 0, 0.75);
                 pointer-events: none;
                 white-space: nowrap;
+                line-height: 1;
             }
 
-            /* NEXT button — lower right */
+            #title-text {
+                display: inline-block;
+                transform: scaleY(1.35);
+                transform-origin: center bottom;
+            }
+
+            /* NEXT button — lower right (uses .ctrl class) */
             #next-btn {
                 position: fixed;
-                right: 32px;
-                bottom: 32px;
+                right: 36px;
+                bottom: 36px;
                 z-index: 20;
-                padding: 14px 28px;
-                background: #000;
-                color: #fff;
-                border: none;
-                font-family: inherit;
-                font-size: 14px;
-                font-weight: 600;
-                letter-spacing: 0.15em;
-                cursor: pointer;
-                transition:
-                    transform 0.15s ease,
-                    background 0.15s ease;
-                user-select: none;
+                padding: 11px 20px;
             }
-            #next-btn:hover {
-                background: #1a1a1a;
-                transform: translateY(-1px);
+
+            /* Document flip buttons — upper right (use .ctrl class, just arrows) */
+            .doc-arrow {
+                position: fixed;
+                top: 50%;
+                transform: translateY(-50%);
+                z-index: 20;
+                width: 48px;
+                height: 48px;
+                padding: 0;
+                font-family: "Inter", sans-serif;
+                font-style: italic;
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
-            #next-btn:active {
-                transform: translateY(0);
+            #doc-prev {
+                right: calc(100px + clamp(220px, 22vw, 320px) + 24px);
+                top: calc(80px + (clamp(220px, 22vw, 320px) * 11 / 8.5) / 2);
+            }
+            #doc-next {
+                right: 40px;
+                top: calc(80px + (clamp(220px, 22vw, 320px) * 11 / 8.5) / 2);
             }
 
             /* Document stack — upper right */
@@ -209,45 +259,6 @@
                     0 8px 28px rgba(0, 0, 0, 0.55),
                     0 2px 6px rgba(0, 0, 0, 0.4);
                 transition: opacity 0.2s ease;
-            }
-
-            /* Document flip buttons */
-            .doc-arrow {
-                position: fixed;
-                top: 50%;
-                transform: translateY(-50%);
-                z-index: 20;
-                width: 48px;
-                height: 48px;
-                background: #000;
-                color: #fff;
-                border: none;
-                font-family: inherit;
-                font-size: 18px;
-                font-weight: 700;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                transition:
-                    background 0.15s ease,
-                    opacity 0.2s ease;
-                user-select: none;
-            }
-            .doc-arrow:hover {
-                background: #1a1a1a;
-            }
-            .doc-arrow:disabled {
-                opacity: 0.25;
-                cursor: default;
-            }
-            #doc-prev {
-                right: calc(100px + clamp(220px, 22vw, 320px) + 24px);
-                top: calc(80px + (clamp(220px, 22vw, 320px) * 11 / 8.5) / 2);
-            }
-            #doc-next {
-                right: 40px;
-                top: calc(80px + (clamp(220px, 22vw, 320px) * 11 / 8.5) / 2);
             }
 
             /* API key warning */
@@ -289,16 +300,16 @@
         <div id="docs">
             <!-- Pages inserted dynamically (bottom → top order) -->
         </div>
-        <button class="doc-arrow" id="doc-prev" aria-label="Previous page">
-            &lt;
+        <button class="ctrl doc-arrow" id="doc-prev" aria-label="Previous page">
+            &larr;
         </button>
-        <button class="doc-arrow" id="doc-next" aria-label="Next page">
-            &gt;
+        <button class="ctrl doc-arrow" id="doc-next" aria-label="Next page">
+            &rarr;
         </button>
 
-        <div id="title"></div>
+        <div id="title"><span id="title-text"></span></div>
 
-        <button id="next-btn">NEXT</button>
+        <button class="ctrl" id="next-btn">Next &rarr;</button>
 
         <script>
             // ===========================================================================
@@ -519,7 +530,7 @@
                 siteIndex = index;
 
                 // Title
-                document.getElementById("title").textContent =
+                document.getElementById("title-text").textContent =
                     currentSite.title;
 
                 // Left overlay
