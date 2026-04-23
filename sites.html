@@ -450,30 +450,60 @@
             }
 
             function positionCameraForOrbit() {
-                const center = Cesium.Cartesian3.fromDegrees(
+                // Target point (ground level at the coordinate)
+                const target = Cesium.Cartesian3.fromDegrees(
                     currentSite.lng,
                     currentSite.lat,
                     0,
                 );
 
-                // Build a local east-north-up frame at the target point.
-                // The camera will orbit around this frame's origin, always looking at it.
-                const transform =
-                    Cesium.Transforms.eastNorthUpToFixedFrame(center);
-                viewer.camera.lookAtTransform(
-                    transform,
-                    new Cesium.HeadingPitchRange(
-                        orbitHeading,
-                        Cesium.Math.toRadians(ORBIT_PITCH_DEG),
-                        // HeadingPitchRange uses true 3D range (straight-line distance from target).
-                        // Compute it from the desired horizontal radius + altitude so the feel
-                        // of the tuning constants stays intuitive.
-                        Math.sqrt(
-                            ORBIT_RADIUS_M * ORBIT_RADIUS_M +
-                                ORBIT_ALTITUDE_M * ORBIT_ALTITUDE_M,
-                        ),
-                    ),
+                // Compute camera position: offset from target in its local ENU frame.
+                // X = east, Y = north, Z = up. We rotate around Z by orbitHeading.
+                const localOffset = new Cesium.Cartesian3(
+                    ORBIT_RADIUS_M * Math.cos(orbitHeading),
+                    ORBIT_RADIUS_M * Math.sin(orbitHeading),
+                    ORBIT_ALTITUDE_M,
                 );
+                const enuMatrix =
+                    Cesium.Transforms.eastNorthUpToFixedFrame(target);
+                const cameraPos = Cesium.Matrix4.multiplyByPoint(
+                    enuMatrix,
+                    localOffset,
+                    new Cesium.Cartesian3(),
+                );
+
+                // Direction vector from camera to target (in world coords)
+                const direction = Cesium.Cartesian3.subtract(
+                    target,
+                    cameraPos,
+                    new Cesium.Cartesian3(),
+                );
+                Cesium.Cartesian3.normalize(direction, direction);
+
+                // Convert that world-space direction into heading/pitch at the camera's
+                // location. Cesium provides a helper for this via the camera's local frame.
+                // We build the ENU frame AT THE CAMERA position, then express direction in
+                // that frame to extract heading/pitch.
+                const camEnu =
+                    Cesium.Transforms.eastNorthUpToFixedFrame(cameraPos);
+                const camEnuInv = Cesium.Matrix4.inverseTransformation(
+                    camEnu,
+                    new Cesium.Matrix4(),
+                );
+                const localDir = Cesium.Matrix4.multiplyByPointAsVector(
+                    camEnuInv,
+                    direction,
+                    new Cesium.Cartesian3(),
+                );
+                // localDir is now (east, north, up) at the camera.
+                // heading: angle from north, clockwise.  pitch: angle above horizon.
+                const heading = Math.atan2(localDir.x, localDir.y);
+                const pitch = Math.asin(localDir.z);
+
+                viewer.camera.setView({
+                    destination: cameraPos,
+                    orientation: { heading, pitch, roll: 0 },
+                });
             }
 
             // ==========================================================================
@@ -515,10 +545,6 @@
                 setTimeout(() => {
                     orbitPaused = false;
                 }, PAUSE_AFTER_SWITCH);
-
-                // Release any previous lookAt transform before snapping to the new site.
-                // Without this, the camera can stay anchored to the old site's frame.
-                viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
 
                 // Snap camera to new site immediately (hard cut)
                 positionCameraForOrbit();
